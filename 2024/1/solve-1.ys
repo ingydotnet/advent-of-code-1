@@ -1,0 +1,18 @@
+!yamlscript/v0
+
+defn indices(coll):
+  to-list:
+    rng: 0 (- len(coll) 1)
+
+defn first-num(s): s.words().first().to-num()
+
+defn second-num(s): s.words().second().to-num()
+
+defn main():
+  input =: slurp("input").lines()
+  list1 =: sort(map(first-num input))
+  list2 =: sort(map(second-num input))
+
+  defn distAt(n): (list1.nth(n) - list2.nth(n)).abs()
+
+  println: map(distAt indices(list1)).sum()
