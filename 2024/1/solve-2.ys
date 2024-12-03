@@ -1,0 +1,15 @@
+!yamlscript/v0
+
+defn first-num(s): s.words().first().to-num()
+
+defn second-num(s): s.words().second().to-num()
+
+defn main():
+  input =: slurp("input").lines()
+  list1 =: map(first-num input)
+  list2 =: map(second-num input)
+
+  defn frequency(n): grep(n list2).len()
+  defn score(n): n * frequency(n)
+
+  println: map(score list1).sum()
