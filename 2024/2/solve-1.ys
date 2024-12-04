@@ -5,9 +5,7 @@ defn safe?:
     not:
       zero?:
         sum:
-          map:
-            fn(f):
-              safe? report: f
+          map (fn [f] (safe? report f)):
             list: (fn [a b] (- a b)) (fn [a b] (- b a))
   (report tester):
     nums =: report:words.map(to-num)
@@ -17,5 +15,4 @@ defn safe?:
           list: (d * (if (<= 1 (tester a b) 3) 1 0)) b
 
 defn main():
-  input =: slurp("input").lines()
-  println: input.filter(safe?).count()
+  slurp("input"):lines.filter(safe?):count:println
