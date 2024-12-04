@@ -1,0 +1,21 @@
+#!/usr/bin/env ys-0
+
+defn safe?:
+  (report):
+    not:
+      zero?:
+        sum:
+          map:
+            fn(f):
+              safe? report: f
+            list: (fn [a b] (- a b)) (fn [a b] (- b a))
+  (report tester):
+    nums =: report:words.map(to-num)
+    first:
+      reduce _ [1 nums.first()] nums.rest():
+        fn([d a] b):
+          list: (d * (if (<= 1 (tester a b) 3) 1 0)) b
+
+defn main():
+  input =: slurp("input").lines()
+  println: input.filter(safe?).count()
