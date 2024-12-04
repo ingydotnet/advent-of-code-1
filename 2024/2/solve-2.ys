@@ -1,0 +1,41 @@
+#!/usr/bin/env ys-0
+
+defn safe?(report):
+  or:
+    actually-safe?: report
+    safe-after-problem-dampener?: report
+
+defn indices(coll):
+  map-indexed _ coll:
+    fn(i x): i
+
+defn remove-by-index(i coll):
+  keep-indexed _ coll:
+    fn(j n):
+       when (j != i): n
+
+defn words-to-nums(s):
+  s.words().map(to-num)
+
+defn actually-safe?:
+  (report):
+    not:
+      zero?:
+        sum:
+          map (fn [f] (actually-safe? report f)):
+            list: (fn [a b] (- a b)) (fn [a b] (- b a))
+  (report tester):
+    first:
+      reduce _ [1 report.first()] report.rest():
+        fn([d a] b):
+          list: (d * (if (<= 1 (tester a b) 3) 1 0)) b
+
+defn safe-after-problem-dampener?(report):
+  some truey?:
+    map _ indices(report):
+      fn(i):
+        dampened-report =: remove-by-index(i report)
+        actually-safe?: dampened-report
+
+defn main():
+  slurp("input"):lines.map(words-to-nums).filter(safe?):count:println
