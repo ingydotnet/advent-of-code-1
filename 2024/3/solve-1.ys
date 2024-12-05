@@ -1,0 +1,6 @@
+#!/usr/bin/env ys-0
+
+defn main():
+  println:
+    reduce _ 0 (re-seq /mul\(([0-9][0-9]?[0-9]?),([0-9][0-9]?[0-9]?)\)/ slurp("input")):
+      fn(y x): y + (x.1:to-num * x.2:to-num)
