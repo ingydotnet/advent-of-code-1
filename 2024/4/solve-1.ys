@@ -1,0 +1,48 @@
+#!/usr/bin/env ys-0
+
+# dirs:
+# 1 2 3
+# 4 * 6
+# 7 8 9
+
+defn main():
+  board =: slurp("input"):lines
+
+  cursors =: (for [coord board:coordinates2D dir (list 1 2 3 4 6 7 8 9)] [dir coord])
+
+  Xs =: filterCursors(cursors    \\X board)
+  Ms =: filterCursors(Xs:advance \\M board)
+  As =: filterCursors(Ms:advance \\A board)
+  Ss =: filterCursors(As:advance \\S board)
+
+  println: Ss:len
+
+defn filterCursors(cursors c board):
+  grep _ cursors:
+    fn(j): board.get2D(j.1).eq(c)
+
+defn advance(cursors):
+  map:
+    fn(j): nextCoordinateByDir(j)
+    =>: cursors
+
+defn nextCoordinateByDir([dir coord]):
+  nextCoord =:
+    cond:
+      dir == 1: list(coord.0.-- coord.1.--)
+      dir == 2: list(coord.0.-- coord.1)
+      dir == 3: list(coord.0.-- coord.1.++)
+      dir == 4: list(coord.0    coord.1.--)
+      dir == 6: list(coord.0    coord.1.++)
+      dir == 7: list(coord.0.++ coord.1.--)
+      dir == 8: list(coord.0.++ coord.1)
+      dir == 9: list(coord.0.++ coord.1.++)
+  list: dir nextCoord
+
+defn indices(coll): (0 .. coll.#.--)
+
+defn coordinates2D(board): (for [y indices(board) x indices(board.0)] [y x])
+
+defn get2D:
+  (board coord): board.get+(coord.0).get+(coord.1)
+  (board y x): board.get+(y).get+(x)
