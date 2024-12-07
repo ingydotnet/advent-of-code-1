@@ -1,0 +1,31 @@
+#!/usr/bin/env ys-0
+
+defn main():
+  it =: slurp("input").split("\n\n").map(lines)
+  constraints =: it.0
+  updates =: it.1.map(fn([it] it.split(",")))
+  lgtm =: grep(partial(well-ordered constraints) updates)
+  center-numbers =:
+    map comp(to-num center-of): lgtm
+  println: center-numbers:sum
+
+defn last-index(coll): coll.#.--
+
+defn center-of(coll):
+  i =: coll.#.-- / 2
+  nth: coll i
+
+defn well-ordered(constraints update):
+  well-positioned: constraints update 0
+
+defn well-positioned(constraints update i):
+  cond:
+    i == update:last-index: true
+    else:
+      violations =:
+        grep _ for([j (i .. update:last-index)] (list update.nth(i) update.nth(j))):
+          fn(it):
+            constraints.has?(it:reverse.join("|"))
+      if violations.?:
+        =>: false
+        well-positioned: constraints update i.++
