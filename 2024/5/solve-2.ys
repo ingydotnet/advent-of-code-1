@@ -1,0 +1,67 @@
+#!/usr/bin/env ys-0
+
+defn main():
+  input =: slurp("input").split("\n\n").map(lines)
+
+  updates =: input.1.map(fn([it] it.split(",")))
+
+  dependencies-of =: input.0
+    .map(fn([it] it.split("\|")))
+    .group-by(second _)
+    .reduce-kv(fn([m k v] (assoc m k (map first v))) {} _)
+
+  bad-ones =: grep(partial(not-well-ordered dependencies-of) updates)
+
+  reordered =:
+    map _ bad-ones:
+      fn(it):
+        re-position: dependencies-of it
+
+  center-numbers =:
+     map comp(to-num center-of): reordered
+
+  println: center-numbers:sum
+
+defn last-index(coll): coll.#.--
+
+defn center-of(coll): coll.nth(coll.#.-- / 2)
+
+defn re-position(dependencies-of unsorted):
+  cond:
+    unsorted:len == 0: ():quote
+
+    else:
+      deps-in-unsorted =:
+        map _ unsorted:
+          fn(it):
+            deps =: dependencies-of.get(it)
+            list it:
+              cond:
+                deps.!: ():quote
+                else:
+                  grep _ deps:
+                    fn(it): unsorted.has?(it)
+
+      deps-free =: deps-in-unsorted.grep(fn([it] it.1:len.eq(0)) _).0.0
+
+      still-unsorted =:
+        remove: (fn[it] it.eq(deps-free)) unsorted
+
+      concat:
+         list: deps-free
+         re-position: dependencies-of still-unsorted
+
+defn not-well-ordered(dependencies-of update):
+  not:
+    well-positioned: dependencies-of update 0
+
+defn well-positioned(dependencies-of update i):
+  cond:
+    i == update:last-index: true
+    else:
+      violations =:
+        grep _ for([j (i.++ .. update:last-index)] (list update.nth(i) update.nth(j))):
+          fn(it): dependencies-of.get(it.0).has?(it.1)
+      if violations.?:
+        =>: false
+        well-positioned: dependencies-of update i.++
