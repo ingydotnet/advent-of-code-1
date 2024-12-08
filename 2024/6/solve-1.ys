@@ -1,0 +1,134 @@
+#!/usr/bin/env ys-0
+
+defn main():
+  lab-map =: slurp("input"):lines
+  map-height =: lab-map:len
+  map-width =: lab-map.0:len
+
+  -[guards blockers] =:
+    reduce _ [] lab-map:indices:
+      fn(v j):
+        row =: lab-map.get(j)
+        blockers =: coordinates-of(row j \\#)
+        guards =: coordinates-of(row j \\^)
+        list:
+          concat: v.0 guards
+          concat: v.1 blockers
+
+  when guards:len.ne(1):
+    die("Unexpect number of guards")
+
+  # N: north, E: east, S: south, W: west
+  facing =: \\N
+  guard =: guards.0
+
+  steps =: walk(guard facing blockers map-height map-width)
+  println: steps:distinct:len
+
+defn walk(guard facing blockers map-height map-width):
+  -[guard2,facing2] =: guard.move-to-next-blocker(facing blockers map-height map-width)
+  d =: distance(guard2 guard)
+  cond:
+    d == 0: ()
+    else:
+      concat:
+        footprints: guard guard2
+        walk: guard2 facing2 blockers map-height map-width
+
+defn turn-right(facing):
+  cond:
+    facing == \\N : \\E
+    facing == \\E : \\S
+    facing == \\S : \\W
+    facing == \\W : \\N
+    else: die("NSFW")
+
+defn distance(coord1 coord2):
+  (coord1.0 - coord2.0):abs + (coord1.1 - coord2.1):abs
+
+defn footprints(coord1 coord2):
+  cond:
+    coord1.0 == coord2.0 : (for [x (coord1.1 .. coord2.1)] (vector coord1.0 x))
+    coord1.1 == coord2.1 : (for [y (coord1.0 .. coord2.0)] (vector y coord1.1))
+    else: die("How?")
+
+defn move-to-next-blocker(guard facing blockers map-height map-width):
+  cond:
+    facing == \\N:
+      blockers =:
+        grep _ blockers:
+          fn(it): it.1.eq(guard.1).and(it.0 < guard.0)
+      if blockers.?:
+        do:
+          first-blocker =: max-by((fn [it] it.0) blockers)
+          list:
+            vector: first-blocker.0.++ guard.1
+            turn-right: facing
+        list:
+          vector: 0 guard.1
+          =>: facing
+
+    facing == \\S:
+      blockers =:
+        grep _ blockers:
+          fn(it): it.1.eq(guard.1).and(guard.0 < it.0)
+      if blockers.?:
+        do:
+          first-blocker =: min-by((fn [it] it.0) blockers)
+          list:
+            vector: first-blocker.0.-- guard.1
+            turn-right: facing
+        list:
+          vector: map-height.-- guard.1
+          =>: facing
+
+    facing == \\W:
+      blockers =:
+        grep _ blockers:
+          fn(it): it.0.eq(guard.0).and(it.1 < guard.1)
+      if blockers.?:
+        do:
+          first-blocker =: max-by((fn [it] it.1) blockers)
+          list:
+            vector: guard.0 first-blocker.1.++
+            turn-right: facing
+        list:
+          vector: guard.0 0
+          =>: facing
+
+    facing == \\E:
+      blockers =:
+        grep _ blockers:
+          fn(it): it.0.eq(guard.0).and(guard.1 < it.1)
+      if blockers.?:
+        do:
+          first-blocker =: min-by((fn [it] it.1) blockers)
+          list:
+            vector: guard.0 first-blocker.1.--
+            turn-right: facing
+        list:
+          vector: guard.0 map-height.--
+          =>: facing
+
+defn coordinates-of(row j c):
+  map:
+    fn(i):
+      vector: j i
+    grep _ row:indices:
+      fn(i): row.get(i).eq(c)
+
+## Utilitiy functions!
+
+defn last-index(coll): coll.#.--
+
+defn indices(coll): 0 .. coll:last-index
+
+defn min-by(f coll):
+  second:
+    reduce _ map((fn [it] -[f(it) it]) coll):
+      fn(a b): (if (a.0 < b.0) a b)
+
+defn max-by(f coll):
+  second:
+    reduce _ map((fn [it] -[f(it) it]) coll):
+      fn(a b): (if (a.0 < b.0) b a)
