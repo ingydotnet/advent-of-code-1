@@ -1,0 +1,181 @@
+#!/usr/bin/env ys-0
+
+defn main():
+  world =: init("input")
+  worldEnd =: world:run
+  guardCoordinates =:
+    (comp vec set):
+      map _ worldEnd:guardMoves:vec:
+        fn(it): it:coordinates
+
+  blockerCandidates =:
+    grep _ guardCoordinates:
+      fn(it):
+        ne: it world:guardStartingCoordinates
+
+  blockersThatWouldCauseGuardToLoop =:
+    grep _ blockerCandidates:
+      fn(it): world.with-extra-blocker-at(it):guard-would-loop
+
+  println: blockersThatWouldCauseGuardToLoop:len
+
+defn init(file):
+  lab-map =: slurp(file):lines
+
+  -[guardCoordinates blockers] =:
+    reduce _ [] lab-map:indices:
+      fn(v j):
+        row =: lab-map.get(j)
+        blockers =: coordinates-of(row j \\#)
+        guardCoordinates =: coordinates-of(row j \\^)
+        list:
+          concat: v.0 guardCoordinates
+          concat: v.1 blockers
+
+  when guardCoordinates:len.ne(1):
+    die("Unexpect number of guardCoordinates")
+
+  # N: north, E: east, S: south, W: west
+  guard =: makeGuard(\\N guardCoordinates.0)
+
+  dimension =: vector(height(lab-map) width(lab-map))
+
+  guardMoves =: hash-set(list())
+
+  makeWorld:
+    =>: guard
+    =>: blockers:set
+    =>: dimension
+    =>: guardMoves
+    =>: nil
+    =>: guard:coordinates
+
+defn makeWorld(guard blockers dimension guardMoves extraBlocker guardStartingCoordinates):
+  vector:
+    =>: guard
+    =>: blockers:set
+    =>: dimension
+    =>: guardMoves
+    =>: extraBlocker
+    =>: guardStartingCoordinates
+
+defn guard(world): world.0
+defn blockers(world): world.1
+defn dimension(world): world.2
+defn guardMoves(world): world.3
+defn extraBlocker(world): world.4
+defn guardStartingCoordinates(world): world.5
+
+defn makeGuard(facing coordinates):
+  vector:
+    =>: facing
+    =>: coordinates
+
+defn facing(guard): guard.0
+defn coordinates(guard): guard.1
+
+defn guard-would-loop(world):
+  world:run:guard-is-looping?
+
+defn run(world):
+  cond:
+    world:guard-left?: world
+    world:guard-is-looping?: world
+    else:
+      recur: world:tick
+
+defn tick(world):
+  guardNext =: world:guard.step(world)
+  if guardNext:
+    makeWorld:
+      =>: guardNext
+      =>: world:blockers
+      =>: world:dimension
+      =>: world:guardMoves.conj(world:guard)
+      =>: world:extraBlocker
+      =>: world:guardStartingCoordinates
+    makeWorld:
+      =>: nil
+      =>: world:blockers
+      =>: world:dimension
+      =>: world:guardMoves
+      =>: world:extraBlocker
+      =>: world:guardStartingCoordinates
+
+defn step(guard world):
+  nextCoord =: guard:forward:coordinates
+  cond:
+    world.is-out-of-bound(nextCoord):
+      =>: nil
+    world.is-blocked(nextCoord):
+      makeGuard:
+        =>: guard:facing:turn-right
+        =>: guard:coordinates
+    else:
+      makeGuard:
+        =>: guard:facing
+        =>: nextCoord
+
+defn guard-left?(world):
+  nil?: world:guard
+
+defn guard-is-looping?(world):
+  contains? world:guardMoves: world:guard
+
+defn is-blocked(world coord):
+  or:
+    eq: world:extraBlocker coord
+    contains? world:blockers: coord
+
+defn is-out-of-bound(world coord):
+  not:
+    and:
+      =>: (< -1 coord.0 world:dimension.0)
+      =>: (< -1 coord.1 world:dimension.1)
+
+defn with-extra-blocker-at(world coordinate):
+  makeWorld:
+    =>: world:guard
+    =>: world:blockers
+    =>: world:dimension
+    =>: world:guardMoves
+    =>: coordinate
+    =>: world:guardStartingCoordinates
+
+defn height(map2d): map2d:len
+
+defn width(map2d): map2d.0:len
+
+defn forward(guard):
+  cond:
+    guard:facing == \\N : vector(guard:facing north(guard:coordinates))
+    guard:facing == \\S : vector(guard:facing south(guard:coordinates))
+    guard:facing == \\E : vector(guard:facing east(guard:coordinates))
+    guard:facing == \\W : vector(guard:facing west(guard:coordinates))
+    else: die("NSFW")
+
+defn north(coord): -[coord.0.-- coord.1]
+defn south(coord): -[coord.0.++ coord.1]
+defn east(coord): -[coord.0 coord.1.++]
+defn west(coord): -[coord.0 coord.1.--]
+
+defn turn-right(facing):
+  cond:
+    facing == \\N : \\E
+    facing == \\E : \\S
+    facing == \\S : \\W
+    facing == \\W : \\N
+    else: die("NSFW")
+
+defn coordinates-of(row j c):
+  map:
+    fn(i):
+      vector: j i
+    grep _ row:indices:
+      fn(i): row.get(i).eq(c)
+
+## Utilitiy functions!
+
+defn last-index(coll): coll.#.--
+
+defn indices(coll): 0 .. coll:last-index
