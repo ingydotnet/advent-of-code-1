@@ -1,0 +1,34 @@
+#!/usr/bin/env ys-0
+
+require ys::yaml: load-file
+
+defn main(& args):
+  inputFile =: (or args.0 "input")
+  junks =: parse(inputFile)
+  golds =: grep(caliberated junks)
+  answer =: (map \(%1.0) golds):sum
+  println: answer
+
+defn parse(inputFile):
+  reduce _ [] load-file(inputFile):
+    fn(x [k v]): x.conj([k:to-num v.split(" "):to-numbers])
+
+defn caliberated([expectation numbers]):
+  =>: explode-and-verify(expectation numbers:first numbers:rest)
+
+defn explode-and-verify(expectation x xs):
+  cond:
+    xs:nil?: false
+    x > expectation: false
+    xs:len:zero?: (x == expectation)
+    else:
+      do:
+        xPlus =: x + xs:first
+        xMul =: x * xs:first
+        or:
+          =>: explode-and-verify(expectation xMul xs:rest)
+          =>: explode-and-verify(expectation xPlus xs:rest)
+
+defn to-numbers(coll):
+  map _ coll:
+    fn(it): it:to-num
