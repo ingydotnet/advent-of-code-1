@@ -1,0 +1,64 @@
+#!/usr/bin/env ys-0
+
+defn main(& args):
+  input =: (or args.0 "input")
+  world =: parse(input)
+  w =: world.get(:width)
+  h =: world.get(:height)
+
+  defn in-bound?(coordinate):
+    and:
+      in-range?: 0 h coordinate.0
+      in-range?: 0 w coordinate.1
+
+  antinodes =:
+    set:
+      reduce-kv _ (vector) world.get(:antenna-groups):
+        fn(antinodes antenna coordinates):
+          antinodes-of-current-antenna =:
+            (comp concat non-nils):
+              for [a coordinates b coordinates]:
+                if a == b:
+                  =>: nil
+                  antinodes-of: a b in-bound?
+          concat: antinodes apply(concat antinodes-of-current-antenna)
+
+  println: antinodes:len
+
+defn parse(file):
+  raw-lines =: file:slurp:lines
+  antenna-groups =:
+    reduce-kv _ (hash-map) raw-lines:
+      fn(idx j line):
+        reduce-kv _ idx line:vec:
+          fn(idx i c):
+            if c == \\.:
+              then: idx
+              else:
+                n =: idx.get(c) || ()
+                assoc: idx c n.conj([j i])
+  hash-map:
+    :height raw-lines:len
+    :width  raw-lines.0:len
+    :antenna-groups antenna-groups
+
+defn antinodes-of(a b in-bound?):
+  dy =: b.0 - a.0
+  dx =: b.1 - a.1
+  candidates =:
+    # The upper bound 100 is chosen so that the range is wide enough
+    # for covering the whole grid.
+    map _ (0 .. 100):
+      fn(n):
+        grep in-bound?:
+          list:
+            vector: (a.0 - (n * dy)) (a.1 - (n * dx))
+            vector: (b.0 + (n * dy)) (b.1 + (n * dx))
+  =>: (apply concat candidates)
+
+defn non-nils(coll): remove(nil? coll)
+
+defn in-range?(start end val):
+  and:
+    <=: start val
+    <: val end
