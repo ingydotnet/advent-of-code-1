@@ -1,0 +1,85 @@
+#!/usr/bin/env ys-0
+
+defn main(& args):
+  input =: (or args.0 "input")
+  dense-disk-map =: input:slurp:lines.0
+  disk-map =: dense-disk-map:annotated:disk-compact
+  println: disk-map:fs-checksum
+
+defn fs-checksum(disk-map):
+  get _ 0:
+    reduce _ [0 0] disk-map:
+      fn([s i] segment):
+        file-id =: segment.0
+        partial-sum =:
+          sum:
+            map _ range(segment.1):
+              fn(j): file-id * (i + j)
+        vector: (s + partial-sum) (i + segment.1)
+
+defn disk-compact:
+  -[disk-map]:
+    disk-compact: disk-map (vector) 0 disk-map:last-index disk-map.0.1 disk-map:last.1
+
+  -[disk-map compacted i j i-remains j-remains]:
+    current-fragment =: disk-map.nth(i)
+    last-fragment =: disk-map.nth(j)
+
+    cond:
+      # When i meats j, that means there are no fragments that's unprocessed.
+      j <= i:
+        if j-remains > 0:
+          then:
+            if compacted:last.0 == last-fragment.0:
+              conj: compacted:drop-last:vec vector(last-fragment.0 (compacted:last.1 + j-remains))
+              conj: compacted vector(last-fragment.0 j-remains)
+          else: compacted
+
+      # Tweak j when:
+      #   The last file-fragment is all consumed.
+      #   The last fragment is not a file-fragment.
+      (or (j-remains == 0) last-fragment.0:nil?):
+        recur: disk-map compacted i j.-- i-remains disk-map.nth(j.--).1
+
+      # Current fragment contains file blocks
+      # We do not alter it in this case.
+      current-fragment.0:nil?:not:
+        recur: disk-map compacted.conj(current-fragment) i.++ j disk-map.nth(i.++).1 j-remains
+
+      # All following condition implies that current fragment contains free blocks.
+
+      # Case: When the number of free blocks in current-fragment is
+      # smallers are smaller that what's remained in last-fragment
+      # We'll make just 1 new block that consumes all remaining blocks
+      # (j-remains) in last-fragment.
+      i-remains <= j-remains:
+        new-fragment =: vector(last-fragment.0 i-remains)
+        recur: disk-map compacted.conj(new-fragment) i.++ j disk-map.get(i.++).1 (j-remains - i-remains)
+
+      # Case: When the number of free blocks in current-fragment
+      # (i-remains) is larger larger than what's remained in
+      # last-fragment (j-remains).  We make 1 new file fragement that
+      # consumes all blocks in last-fragment to replace current
+      # fragment, and j can be tweaked.
+      i-remains > j-remains:
+        do:
+          new-file-fragment =: vector(last-fragment.0 j-remains)
+          recur: disk-map compacted.conj(new-file-fragment) i j.-- (i-remains - j-remains)  disk-map.nth(j.--).1
+
+      else:
+        die: "Impossible"
+
+# ([$id $blocks] [nil $blocks] [$id $blocks] ...)
+#  (file blocks) (free blocks) ...
+defn annotated(dense-disk-map):
+  grep:
+    fn(it): it != [nil 0]
+    reduce-kv _ (vector) dense-disk-map:vec.windowed(2):vec:
+      fn(a i [f b]):
+        conj a:
+          vector: i f:S:N
+          vector: nil (or b 0):S:N
+
+defn windowed(coll n): partition(n n nil coll)
+
+defn last-index(coll): coll:len.--
