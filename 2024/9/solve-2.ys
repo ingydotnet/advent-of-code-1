@@ -1,0 +1,103 @@
+#!/usr/bin/env ys-0
+
+defn main(& args):
+  input =: (or args.0 "input")
+  dense-disk-map =: input:slurp:lines.0
+  disk-map =: dense-disk-map:annotated:disk-defrag
+  println: disk-map:fs-checksum
+
+defn fs-checksum(disk-map):
+  get _ 0:
+    reduce _ [0 0] disk-map:
+      fn([s i] segment):
+        file-id =: segment.0
+        partial-sum =:
+          sum:
+            map _ range(segment.1):
+              fn(j): (or file-id 0) * (i + j)
+        vector: (s + partial-sum) (i + segment.1)
+
+defn disk-defrag:
+  -[disk-map]:
+    disk-defrag: disk-map disk-map:last-index
+
+  # j - the index of the current segment that we are processing
+  # i - the index of free segment that could fit current segment
+  # assert: i < j
+  -[disk-map j]:
+    current-fragment =: disk-map.nth(j)
+    current-file-id =: current-fragment.0
+    new-file-id =: current-file-id.--
+
+    i =:
+      find-first _ range(j):
+        fn(i):
+          it =: disk-map.nth(i)
+          and:
+            nil?: it.0
+            =>: current-fragment.1 <= it.1
+
+    cond:
+      j == 0:
+        disk-map
+
+      current-file-id == 0:
+        disk-map
+
+      i:nil?:
+        new-j =:
+          find-first _ disk-map:indices:
+            fn(j): disk-map.nth(j).0 == new-file-id
+        recur: disk-map new-j
+
+      else:
+        new-segment =:
+          if current-fragment.1 == disk-map.nth(i).1:
+            vector: current-fragment
+            vector: current-fragment vector(nil (disk-map.nth(i).1 - current-fragment.1))
+
+        new-disk-map =:
+          merge-free-fragments:
+            concat:
+              =>: disk-map.subvec(0 i)
+              =>: new-segment
+              =>: disk-map.subvec(i.++ j)
+              vector: vector(nil current-fragment.1)
+              =>: disk-map.subvec(j.++)
+
+        new-j =:
+          find-first _ new-disk-map:indices:
+            fn(j): new-disk-map.nth(j).0 == new-file-id
+
+        recur: new-disk-map new-j
+
+defn merge-free-fragments(disk-map):
+  vec:
+    reduce _ [] disk-map:
+      fn(fragments current):
+        cond:
+          (current.0:nil? && fragments:last.0:nil?):
+            conj: fragments:drop-last:vec vector(nil (fragments:last.1 + current.1))
+          else:
+            conj: fragments current
+
+# ([$id $blocks] [nil $blocks] [$id $blocks] ...)
+#  (file blocks) (free blocks) ...
+defn annotated(dense-disk-map):
+  (comp vec grep):
+    fn(it): it != [nil 0]
+    reduce-kv _ (vector) dense-disk-map:vec.windowed(2):vec:
+      fn(a i [f b]):
+        conj a:
+          vector: i f:S:N
+          vector: nil (or b 0):S:N
+
+defn windowed(coll n): partition(n n nil coll)
+
+defn last-index(coll): coll:len.--
+
+defn indices(coll): range(coll:len)
+
+defn find-first(pred coll):
+  first:
+    grep: pred coll
