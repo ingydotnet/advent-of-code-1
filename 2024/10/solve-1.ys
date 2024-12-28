@@ -1,0 +1,60 @@
+#!/usr/bin/env ys-0
+
+defn main(& args):
+  input =: (or args.0 "input")
+  terrain =: init(input)
+
+  nines =: terrain.coordinates-of(9)
+  memo9 =:
+    zipmap: nines map((fn [it] set(vector(it))) nines)
+
+  memo0 =:
+    reduce _ memo9 (8..0):
+      fn(memo elev):
+        yxs =: terrain.coordinates-of(elev)
+        zipmap yxs:
+          map _ yxs:
+            fn(yx):
+              neighbours =: terrain.neighbours-of(yx)
+              memo-of-neighbours =:
+                keep _ neighbours:
+                  fn(n): memo.get(n)
+              union: memo-of-neighbours
+
+  scores =:
+    map _ vals(memo0):
+      fn(it): it:len
+
+  println: sum(scores)
+
+defn init(input): input:slurp:lines.map(fn([line] line.split("").map(N)))
+
+defn neighbours-of(terrain yx):
+  grep:
+    fn(yx):
+      and:
+        <=: 0 yx.0 terrain:last-index
+        <=: 0 yx.1 terrain.0:last-index
+    for [d [[1 0] [-1 0] [0 1] [0 -1]]]: -[(yx.0 + d.0) (yx.1 + d.1)]
+
+defn coordinates-of(terrain it):
+  grep _ terrain:coordinates:
+    fn([y x]): terrain.at(y x) == it
+
+defn at:
+  -[terrain yx]: terrain.nth(yx.0).nth(yx.1)
+  -[terrain y x]: terrain.nth(y).nth(x)
+
+defn flatmap(f coll): flatten(map(f coll))
+
+defn indices(coll): coll:len:range
+
+defn last-index(coll): coll:len.--
+
+defn coordinates(terrain):
+  vec:
+    for [y terrain:indices x terrain.0:indices]: -[y x]
+
+defn union(sets):
+  set:
+    apply concat: sets
