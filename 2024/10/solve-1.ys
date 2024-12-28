@@ -6,7 +6,9 @@ defn main(& args):
 
   nines =: terrain.coordinates-of(9)
   memo9 =:
-    zipmap: nines map((fn [it] set(vector(it))) nines)
+    zipmap nines:
+      map _ nines:
+        fn(it): it:vector:set
 
   memo0 =:
     reduce _ memo9 (8..0):
